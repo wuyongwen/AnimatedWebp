@@ -8,6 +8,10 @@ import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.io.*;
 import java.text.NumberFormat;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * mailTo:guocheng@xuxu.in
@@ -151,11 +155,23 @@ public class MainForm {
     private void processFiles() {
         Runtime runtime = Runtime.getRuntime();
         Process process;
+        Comparator c = new Comparator<File>() {
+            @Override
+            public int compare(File o1, File o2) {
+                if (o1.isDirectory() && o2.isFile())
+                    return -1;
+                if (o1.isFile() && o2.isDirectory())
+                    return 1;
+                return o1.getName().compareTo(o2.getName());
+            }
+        };
         if (chooseFile != null && chooseFile.isDirectory()) {
-            File[] files = chooseFile.listFiles(new ImageFileFilter(".png"));
-            if (files == null || files.length == 0) {
+            List<File> files = Arrays.asList(chooseFile.listFiles(new ImageFileFilter(".png")));
+            if (files == null || files.size() == 0) {
                 return;
             }
+            Collections.sort(files, c);
+
             int loopCount = loopRadioButton.isSelected() ? 0 : Integer.parseInt(loopCountEdit.getText());
             for (File file : files) {
                 String name = file.getName().replace(".png", "");
@@ -163,7 +179,7 @@ public class MainForm {
                 try {
                     process = runtime.exec(String.format(encodeWebpCmd, localFileDir.getAbsolutePath(), Integer.valueOf(quality.getText()), file.getAbsolutePath(), file.getParent() + "/" + name + ".webp"));
                     int exitVal = process.waitFor();
-                } catch (IOException |InterruptedException e) {
+                } catch (IOException | InterruptedException e) {
                     JOptionPane.showMessageDialog(null, e, "处理结果",
                             JOptionPane.INFORMATION_MESSAGE);
                     e.printStackTrace();
@@ -172,10 +188,12 @@ public class MainForm {
             }
 
             StringBuilder sb = new StringBuilder();
-            files = chooseFile.listFiles(new ImageFileFilter(".webp"));
+            files = Arrays.asList(chooseFile.listFiles(new ImageFileFilter(".webp")));
+            Collections.sort(files, c);
             for (File file : files) {
                 sb.append(String.format(singleFileCmd, file.getAbsolutePath(), 1000 / Integer.valueOf(framerate.getText())));
             }
+
             try {
                 process = runtime.exec(String.format(webpMuxCmd, localFileDir.getAbsolutePath(), sb.toString(), loopCount, chooseFile.getParent() + "/" + chooseFile.getName()));
                 int exitVal = process.waitFor();
@@ -198,6 +216,7 @@ public class MainForm {
      */
     private class ImageFileFilter implements FileFilter {
         final String filer;
+
         public ImageFileFilter(String filer) {
             this.filer = filer;
         }
